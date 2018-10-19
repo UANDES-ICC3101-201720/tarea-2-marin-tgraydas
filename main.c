@@ -15,7 +15,9 @@ how to use the page table and disk interfaces.
 #include <string.h>
 #include <errno.h>
 char *physmem;
-
+int pages_lefts = 0;
+int diskwrite = 0;
+int diskread = 0;
 int npages;
 int nframes;
 int *marcos_table;
@@ -73,11 +75,12 @@ void LIFO(struct page_table *pt, int page)
 	int frame = n->value;
 	int the_page = n->page;
 	free(n);
-	fprintf(stderr, "frame: %i, loaded page: %i, removed page: %i\n", frame, page, the_page);
 	struct node *next = head->node;
 	append(frame, page, head->node, next);
 	disk_write(disk, the_page, &physmem[frame * PAGE_SIZE]);
+	diskwrite++;
 	disk_read(disk, page, &physmem[frame * PAGE_SIZE]);
+	diskread++;
 	page_table_set_entry(pt, the_page, frame, 0);
 	page_table_set_entry(pt, page, frame, PROT_READ | PROT_WRITE);
 }
@@ -90,7 +93,9 @@ void FIFO(struct page_table *pt, int page)
 	struct node *next = head->node;
 	append(frame, page, head->node, next);
 	disk_write(disk, the_page, &physmem[frame * PAGE_SIZE]);
+	diskwrite++;
 	disk_read(disk, page, &physmem[frame * PAGE_SIZE]);
+	diskread++;
 	page_table_set_entry(pt, the_page, frame, 0);
 	page_table_set_entry(pt, page, frame, PROT_READ | PROT_WRITE);
 }
@@ -113,22 +118,24 @@ void RAND(struct page_table *pt, int page)
 {
 	int frame = lrand48() % nframes;
 	int the_page = findPageByFrame(frame);
-	fprintf(stderr, "frame: %i, loaded page: %i, removed page: %i\n", frame, page, the_page);
 	disk_write(disk, the_page, &physmem[frame * PAGE_SIZE]);
+	diskwrite++;
 	disk_read(disk, page, &physmem[frame * PAGE_SIZE]);
+	diskread++;
 	page_table_set_entry(pt, the_page, frame, 0);
 	page_table_set_entry(pt, page, frame, PROT_READ | PROT_WRITE);
 }
 
 void page_fault_handler(struct page_table *pt, int page)
 {
-	fprintf(stderr, "page fault on page #%d\n", page);
+	pages_lefts++;
 	int helper = 0;
 	for (int i = 0; i < nframes; i++)
 	{
 		if (marcos_table[i] != -1)
 		{
 			disk_read(disk, page, &physmem[i * PAGE_SIZE]);
+			diskread++;
 			page_table_set_entry(pt, page, i, PROT_READ | PROT_WRITE);
 			marcos_table[i] = -1;
 			struct node *next = head->node;
@@ -226,7 +233,9 @@ int main(int argc, char *argv[])
 	{
 		fprintf(stderr, "unknown program: %s\n", argv[4]);
 	}
-
+	printf("Faltas de pagina: %i\n", pages_lefts);
+	printf("Lecturas de disco: %i\n", diskread);
+	printf("Escrituras de disco: %i\n", diskwrite);
 	page_table_delete(pt);
 	disk_close(disk);
 
