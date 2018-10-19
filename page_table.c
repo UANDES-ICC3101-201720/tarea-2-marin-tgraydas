@@ -43,7 +43,6 @@ static void internal_fault_handler( int signum, siginfo_t *info, void *context )
 
 	if(pt) {
 		int page = (addr-pt->virtmem) / PAGE_SIZE;
-
 		if(page>=0 && page<pt->npages) {
 			pt->handler(pt,page);
 			return;
@@ -102,7 +101,7 @@ void page_table_delete( struct page_table *pt )
 	munmap(pt->virtmem,pt->npages*PAGE_SIZE);
 	munmap(pt->physmem,pt->nframes*PAGE_SIZE);
 	free(pt->page_bits);
-	free(pt->page_mapping);
+	free(pt->page_mapping);	
 	close(pt->fd);
 	free(pt);
 }

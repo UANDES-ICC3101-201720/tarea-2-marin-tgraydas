@@ -38,7 +38,10 @@ int main( int argc, char *argv[] )
 	int  marcos_table[nframes];
 	for (int i = 0; i < nframes; ++i)
 	{
+		marcos_table_libres[i] = i;
 		marcos_table[i] = i;
+
+
 	}
 	const char * algorithm = argv[3];
 	const char *program = argv[4];
@@ -59,70 +62,82 @@ int main( int argc, char *argv[] )
 	}
 
 	char *virtmem = page_table_get_virtmem(pt);
-
 	char *physmem = page_table_get_physmem(pt);
 	int  *frame;
 	int  * bits;
-	for (int paginas = 0; paginas < npages ; ++paginas)
+	for (int i = 0; i < nframes; ++i)
 	{
-		if(!strcmp(algorithm,"lru")) {
+		disk_write(disk, i, &physmem[i*BLOCK_SIZE]);
+	}
+
+	if(!strcmp(algorithm,"lru")) {
 			//implementar lru
+		for (int paginas = 0; paginas < npages ; ++paginas)
+		{
 			
-		int a_disco = 0;
-		if (npages > nframes)
-		{
-			int i = 0;
-			while(marcos_table_libres[i]==-1 && i <= marcos_table[i])
+				
+			int a_disco = 0;
+			if (npages > nframes)
 			{
-
-				if (i == nframes)
+				int i = 0;
+				while(marcos_table_libres[i]==-1 && i <= marcos_table[i])
 				{
-					a_disco = 1;
-					break;
 
+					if (i == nframes)
+					{
+						a_disco = 1;
+						break;
+
+					}
+					i++;
 				}
-				i++;
+				if (a_disco== 0 && marcos_table_libres[i] != -1  && i <= marcos_table[i] )
+				{
+					printf(" holaa %d %d\n",marcos_table_libres[i], i);
+					/*
+					page_table_get_entry(pt,marcos_table_libres[i], frame, bits);
+					int frames = frame;
+					int bit  = bits;
+					printf(" ho %d %d \n",frames , paginas );	*/
+
+					page_table_set_entry(pt, paginas, marcos_table_libres[i],PROT_WRITE |PROT_READ);
+					disk_read(disk,paginas,&physmem[marcos_table_libres[i]*BLOCK_SIZE]);
+					page_table_print_entry(pt,marcos_table_libres[i]);
+
+					marcos_table_libres[i] = -1;
+
+
+				}else{
+					printf(" hola  %d %d\n",marcos_table_libres[i] , i );
+					//manejar algoritmo
+					//manejar disco
+				}
+
 			}
-			if (a_disco== 0 && marcos_table_libres[i] != -1  && i <= marcos_table[i] )
+			
+		}
+		if(npages ==  nframes){
+
+			for (int i = 0; i < nframes; ++i)
 			{
-				printf(" holaa %d\n",marcos_table_libres[i]  );
-				page_table_get_entry(pt,paginas, frame, bits);
-				int frames = frame;
-				int bit  = bits;
-				page_table_set_entry(pt, paginas, frames,bit);
-				marcos_table_libres[i] = -1;
-				printf(" holaa %d\n",marcos_table_libres[i]  );
-
-
-			}else{
-				printf(" hola como %d\n",marcos_table_libres[i]  );
-				//manejar disco
+				page_table_set_entry(pt, i, i,PROT_WRITE);
 			}
 
+			
+
+	} else if(!strcmp(algorithm,"fifo")) {
+			// implementar fifo
+			scan_program(virtmem,npages*PAGE_SIZE);
+
+	} else if(!strcmp(algorithm,"custom")) {
+			//implementar custom
+			focus_program(virtmem,npages*PAGE_SIZE);
+
+	} else {
+			fprintf(stderr,"unknown algorithm: %s\n",argv[3]);
+
 		}
-		
 	}
-	if(npages ==  nframes){
-		for (int i = 0; i < nframes; ++i)
-		{
-			page_table_set_entry(pt, i, i,PROT_WRITE);
-		}
-
-		
-
-} else if(!strcmp(algorithm,"fifo")) {
-		// implementar fifo
-		scan_program(virtmem,npages*PAGE_SIZE);
-
-} else if(!strcmp(algorithm,"custom")) {
-		//implementar custom
-		focus_program(virtmem,npages*PAGE_SIZE);
-
-} else {
-		fprintf(stderr,"unknown algorithm: %s\n",argv[3]);
-
-	}
-}
 
 
 
