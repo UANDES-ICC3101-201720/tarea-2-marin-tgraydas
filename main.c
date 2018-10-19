@@ -14,153 +14,218 @@ how to use the page table and disk interfaces.
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+char *physmem;
 
-
-void page_fault_handler( struct page_table *pt, int page)
+int npages;
+int nframes;
+int *marcos_table;
+char *algorithm;
+struct disk *disk;
+struct node
 {
-	printf("page fault on page #%d\n",page);
-	exit(0);
+	int value;
+	int page;
+	struct node *next;
+};
+struct list
+{
+	struct node *node;
+};
 
+struct list *head;
+void append(int value, int page, struct node *initial, struct node *next)
+{
+	next = initial;
+	if (next != 0)
+	{
+		while (next->next != 0)
+		{
+			next = next->next;
+		}
 	}
-	
+	next->next = malloc(sizeof(struct node));
+	next = next->next;
+	next->value = value;
+	next->page = page;
+}
 
-int main( int argc, char *argv[] )
+struct node *pop(struct node *initial)
 {
-	if(argc!=5) {
+	struct node *next = initial;
+	struct node *before;
+	while (next->next != NULL)
+	{
+		before = next;
+		next = next->next;
+	}
+	before->next = NULL;
+	return next;
+}
+
+void remove_first()
+{
+	head->node = head->node->next;
+}
+
+void LIFO(struct page_table *pt, int page)
+{
+	struct node *n = pop(head->node);
+	int frame = n->value;
+	int the_page = n->page;
+	free(n);
+	fprintf(stderr, "frame: %i, loaded page: %i, removed page: %i\n", frame, page, the_page);
+	struct node *next = head->node;
+	append(frame, page, head->node, next);
+	disk_write(disk, the_page, &physmem[frame * PAGE_SIZE]);
+	disk_read(disk, page, &physmem[frame * PAGE_SIZE]);
+	page_table_set_entry(pt, the_page, frame, 0);
+	page_table_set_entry(pt, page, frame, PROT_READ | PROT_WRITE);
+}
+
+void FIFO(struct page_table *pt, int page)
+{
+	int frame = head->node->value;
+	int the_page = head->node->page;
+	remove_first(head);
+	struct node *next = head->node;
+	append(frame, page, head->node, next);
+	disk_write(disk, the_page, &physmem[frame * PAGE_SIZE]);
+	disk_read(disk, page, &physmem[frame * PAGE_SIZE]);
+	page_table_set_entry(pt, the_page, frame, 0);
+	page_table_set_entry(pt, page, frame, PROT_READ | PROT_WRITE);
+}
+
+int findPageByFrame(int frame)
+{
+	struct node *next = head->node;
+	while (next != NULL)
+	{
+		if (next->value == frame)
+		{
+			return next->page;
+		}
+		next = next->next;
+	}
+	return -1;
+}
+
+void RAND(struct page_table *pt, int page)
+{
+	int frame = lrand48() % nframes;
+	int the_page = findPageByFrame(frame);
+	fprintf(stderr, "frame: %i, loaded page: %i, removed page: %i\n", frame, page, the_page);
+	disk_write(disk, the_page, &physmem[frame * PAGE_SIZE]);
+	disk_read(disk, page, &physmem[frame * PAGE_SIZE]);
+	page_table_set_entry(pt, the_page, frame, 0);
+	page_table_set_entry(pt, page, frame, PROT_READ | PROT_WRITE);
+}
+
+void page_fault_handler(struct page_table *pt, int page)
+{
+	fprintf(stderr, "page fault on page #%d\n", page);
+	int helper = 0;
+	for (int i = 0; i < nframes; i++)
+	{
+		if (marcos_table[i] != -1)
+		{
+			disk_read(disk, page, &physmem[i * PAGE_SIZE]);
+			page_table_set_entry(pt, page, i, PROT_READ | PROT_WRITE);
+			marcos_table[i] = -1;
+			struct node *next = head->node;
+			if (i == 0)
+			{
+				head->node->value = 0;
+				head->node->page = page;
+				helper = 1;
+				break;
+			}
+			append(i, page, head->node, next);
+			helper = 1;
+			break;
+		}
+	}
+
+	if (!helper)
+	{
+		if (!strcmp(algorithm, "fifo"))
+		{
+			FIFO(pt, page);
+		}
+		else if (!strcmp(algorithm, "custom"))
+		{
+
+			LIFO(pt, page);
+		}
+		else if (!strcmp(algorithm, "random"))
+		{
+			RAND(pt, page);
+		}
+	}
+}
+
+int main(int argc, char *argv[])
+{
+	head = malloc(sizeof(struct list));
+	head->node = malloc(sizeof(struct node));
+	if (argc != 5)
+	{
 		/* Add 'random' replacement algorithm if the size of your group is 3 */
-		printf("use: virtmem <npages> <nframes> <lru|fifo|custom> <sort|scan|focus>\n");
+		printf("use: virtmem <npages> <nframes> <random|fifo|custom> <sort|scan|focus>\n");
 		return 1;
 	}
 
-	int npages = atoi(argv[1]);
-	int nframes = atoi(argv[2]);
-	int  marcos_table_libres[nframes];
-	int  marcos_table[nframes];
+	npages = atoi(argv[1]);
+	nframes = atoi(argv[2]);
+
+	algorithm = argv[3];
+
+	int m[nframes];
+	marcos_table = m;
 	for (int i = 0; i < nframes; ++i)
 	{
-		marcos_table_libres[i] = i;
 		marcos_table[i] = i;
-
-
 	}
-	const char * algorithm = argv[3];
+	//const char *algorithm = argv[3];
 	const char *program = argv[4];
 
-	struct disk *disk = disk_open("myvirtualdisk",npages);
-	if(!disk) {
-		fprintf(stderr,"couldn't create virtual disk: %s\n",strerror(errno));
+	disk = disk_open("myvirtualdisk", npages);
+	if (!disk)
+	{
+		fprintf(stderr, "couldn't create virtual disk: %s\n", strerror(errno));
 		return 1;
 	}
 
+	struct page_table *pt = page_table_create(npages, nframes, page_fault_handler);
 
-
-	struct page_table *pt = page_table_create( npages, nframes, page_fault_handler );
-
-	if(!pt) {
-		fprintf(stderr,"couldn't create page table: %s\n",strerror(errno));
+	if (!pt)
+	{
+		fprintf(stderr, "couldn't create page table: %s\n", strerror(errno));
 		return 1;
 	}
 
 	char *virtmem = page_table_get_virtmem(pt);
-	char *physmem = page_table_get_physmem(pt);
-	int  *frame;
-	int  * bits;
+	physmem = page_table_get_physmem(pt);
 	for (int i = 0; i < nframes; ++i)
 	{
-		disk_write(disk, i, &physmem[i*BLOCK_SIZE]);
+		disk_write(disk, i, &physmem[i * BLOCK_SIZE]);
 	}
 
-	if(!strcmp(algorithm,"lru")) {
-			//implementar lru
-		for (int paginas = 0; paginas < npages ; ++paginas)
-		{
-			
-				
-			int a_disco = 0;
-			if (npages > nframes)
-			{
-				int i = 0;
-				while(marcos_table_libres[i]==-1 && i <= marcos_table[i])
-				{
-
-					if (i == nframes)
-					{
-						a_disco = 1;
-						break;
-
-					}
-					i++;
-				}
-				if (a_disco== 0 && marcos_table_libres[i] != -1  && i <= marcos_table[i] )
-				{
-					printf(" holaa %d %d\n",marcos_table_libres[i], i);
-					/*
-					page_table_get_entry(pt,marcos_table_libres[i], frame, bits);
-					int frames = frame;
-					int bit  = bits;
-					printf(" ho %d %d \n",frames , paginas );	*/
-
-					page_table_set_entry(pt, paginas, marcos_table_libres[i],PROT_WRITE |PROT_READ);
-					disk_read(disk,paginas,&physmem[marcos_table_libres[i]*BLOCK_SIZE]);
-					page_table_print_entry(pt,marcos_table_libres[i]);
-
-					marcos_table_libres[i] = -1;
-
-
-				}else{
-					printf(" hola  %d %d\n",marcos_table_libres[i] , i );
-					//manejar algoritmo
-					//manejar disco
-				}
-
-			}
-			
-		}
-		if(npages ==  nframes){
-
-			for (int i = 0; i < nframes; ++i)
-			{
-				page_table_set_entry(pt, i, i,PROT_WRITE);
-			}
-
-			
-
-	} else if(!strcmp(algorithm,"fifo")) {
-			// implementar fifo
-			scan_program(virtmem,npages*PAGE_SIZE);
-
-	} else if(!strcmp(algorithm,"custom")) {
-			//implementar custom
-			focus_program(virtmem,npages*PAGE_SIZE);
-
-	} else {
-			fprintf(stderr,"unknown algorithm: %s\n",argv[3]);
-
-		}
+	if (!strcmp(program, "sort"))
+	{
+		sort_program(virtmem, npages * PAGE_SIZE);
 	}
-
-
-
-
-
-
-if(!strcmp(program,"sort")) {
-		sort_program(virtmem,npages*PAGE_SIZE);
-
-}else if(!strcmp(program,"scan")) {
-		scan_program(virtmem,npages*PAGE_SIZE);
-
-} else if(!strcmp(program,"focus")) {
-		focus_program(virtmem,npages*PAGE_SIZE);
-
-} else {
-		fprintf(stderr,"unknown program: %s\n",argv[4]);
-
+	else if (!strcmp(program, "scan"))
+	{
+		scan_program(virtmem, npages * PAGE_SIZE);
 	}
-	
-
-
-	
+	else if (!strcmp(program, "focus"))
+	{
+		focus_program(virtmem, npages * PAGE_SIZE);
+	}
+	else
+	{
+		fprintf(stderr, "unknown program: %s\n", argv[4]);
+	}
 
 	page_table_delete(pt);
 	disk_close(disk);
