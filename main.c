@@ -82,7 +82,7 @@ void LIFO(struct page_table *pt, int page)
 	disk_read(disk, page, &physmem[frame * PAGE_SIZE]);
 	diskread++;
 	page_table_set_entry(pt, the_page, frame, 0);
-	page_table_set_entry(pt, page, frame, PROT_READ | PROT_WRITE);
+	page_table_set_entry(pt, page, frame, PROT_READ);
 }
 
 void FIFO(struct page_table *pt, int page)
@@ -97,7 +97,7 @@ void FIFO(struct page_table *pt, int page)
 	disk_read(disk, page, &physmem[frame * PAGE_SIZE]);
 	diskread++;
 	page_table_set_entry(pt, the_page, frame, 0);
-	page_table_set_entry(pt, page, frame, PROT_READ | PROT_WRITE);
+	page_table_set_entry(pt, page, frame, PROT_READ);
 }
 
 int findPageByFrame(int frame)
@@ -114,6 +114,20 @@ int findPageByFrame(int frame)
 	return -1;
 }
 
+void modify(int frame, int page)
+{
+	struct node *next = head->node;
+	while (next != NULL)
+	{
+		if (next->value == frame)
+		{
+			next->page = page;
+			return;
+		}
+		next = next->next;
+	}
+}
+
 void RAND(struct page_table *pt, int page)
 {
 	int frame = lrand48() % nframes;
@@ -122,13 +136,34 @@ void RAND(struct page_table *pt, int page)
 	diskwrite++;
 	disk_read(disk, page, &physmem[frame * PAGE_SIZE]);
 	diskread++;
+	modify(frame, page);
 	page_table_set_entry(pt, the_page, frame, 0);
-	page_table_set_entry(pt, page, frame, PROT_READ | PROT_WRITE);
+	page_table_set_entry(pt, page, frame, PROT_READ);
+}
+
+struct node *loadedPage(int page)
+{
+	struct node *node = head->node;
+	while (node != NULL)
+	{
+		if (node->page == page)
+		{
+			return node;
+		}
+		node = node->next;
+	}
+	return NULL;
 }
 
 void page_fault_handler(struct page_table *pt, int page)
 {
 	pages_lefts++;
+	struct node *loaded = loadedPage(page);
+	if (loaded != NULL)
+	{
+		page_table_set_entry(pt, page, loaded->value, PROT_READ | PROT_WRITE);
+		return;
+	}
 	int helper = 0;
 	for (int i = 0; i < nframes; i++)
 	{
@@ -136,7 +171,7 @@ void page_fault_handler(struct page_table *pt, int page)
 		{
 			disk_read(disk, page, &physmem[i * PAGE_SIZE]);
 			diskread++;
-			page_table_set_entry(pt, page, i, PROT_READ | PROT_WRITE);
+			page_table_set_entry(pt, page, i, PROT_READ);
 			marcos_table[i] = -1;
 			struct node *next = head->node;
 			if (i == 0)
