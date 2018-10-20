@@ -22,6 +22,7 @@ int npages;
 int nframes;
 int *marcos_table;
 char *algorithm;
+int removepos = 2;
 struct disk *disk;
 struct node
 {
@@ -35,69 +36,18 @@ struct list
 };
 
 struct list *head;
-void append(int value, int page, struct node *initial, struct node *next)
-{
-	next = initial;
-	if (next != 0)
-	{
-		while (next->next != 0)
-		{
-			next = next->next;
-		}
-	}
-	next->next = malloc(sizeof(struct node));
-	next = next->next;
-	next->value = value;
-	next->page = page;
-}
 
-struct node *pop(struct node *initial)
+void free_list(struct node *node)
 {
-	struct node *next = initial;
-	struct node *before;
+	struct node *next = node;
+	struct node *before = node;
+
 	while (next->next != NULL)
 	{
 		before = next;
 		next = next->next;
+		free(before);
 	}
-	before->next = NULL;
-	return next;
-}
-
-void remove_first()
-{
-	head->node = head->node->next;
-}
-
-void LIFO(struct page_table *pt, int page)
-{
-	struct node *n = pop(head->node);
-	int frame = n->value;
-	int the_page = n->page;
-	free(n);
-	struct node *next = head->node;
-	append(frame, page, head->node, next);
-	disk_write(disk, the_page, &physmem[frame * PAGE_SIZE]);
-	diskwrite++;
-	disk_read(disk, page, &physmem[frame * PAGE_SIZE]);
-	diskread++;
-	page_table_set_entry(pt, the_page, frame, 0);
-	page_table_set_entry(pt, page, frame, PROT_READ);
-}
-
-void FIFO(struct page_table *pt, int page)
-{
-	int frame = head->node->value;
-	int the_page = head->node->page;
-	remove_first(head);
-	struct node *next = head->node;
-	append(frame, page, head->node, next);
-	disk_write(disk, the_page, &physmem[frame * PAGE_SIZE]);
-	diskwrite++;
-	disk_read(disk, page, &physmem[frame * PAGE_SIZE]);
-	diskread++;
-	page_table_set_entry(pt, the_page, frame, 0);
-	page_table_set_entry(pt, page, frame, PROT_READ);
 }
 
 int findPageByFrame(int frame)
@@ -127,6 +77,72 @@ void modify(int frame, int page)
 		next = next->next;
 	}
 }
+void append(int value, int page, struct node *initial, struct node *next)
+{
+	next = initial;
+	if (next != 0)
+	{
+		while (next->next != NULL)
+		{
+			next = next->next;
+		}
+	}
+	next->next = malloc(sizeof(struct node));
+	next = next->next;
+	next->value = value;
+	next->page = page;
+}
+
+struct node *pop(struct node *initial)
+{
+	struct node *next = initial;
+	struct node *before;
+	while (next->next != NULL)
+	{
+		before = next;
+		next = next->next;
+	}
+	before->next = NULL;
+	return next;
+}
+
+void remove_first()
+{
+	head->node = head->node->next;
+}
+
+void HALFREMOVER(struct page_table *pt, int page)
+{
+	removepos++;
+	if (removepos == nframes - 3)
+	{
+		removepos = 1;
+	}
+	int frame = removepos;
+	int the_page = findPageByFrame(frame);
+	modify(frame, page);
+	disk_write(disk, the_page, &physmem[frame * PAGE_SIZE]);
+	diskwrite++;
+	disk_read(disk, page, &physmem[frame * PAGE_SIZE]);
+	diskread++;
+	page_table_set_entry(pt, the_page, frame, 0);
+	page_table_set_entry(pt, page, frame, PROT_READ);
+}
+
+void FIFO(struct page_table *pt, int page)
+{
+	int frame = head->node->value;
+	int the_page = head->node->page;
+	remove_first(head);
+	struct node *next = head->node;
+	append(frame, page, head->node, next);
+	disk_write(disk, the_page, &physmem[frame * PAGE_SIZE]);
+	diskwrite++;
+	disk_read(disk, page, &physmem[frame * PAGE_SIZE]);
+	diskread++;
+	page_table_set_entry(pt, the_page, frame, 0);
+	page_table_set_entry(pt, page, frame, PROT_READ);
+}
 
 void RAND(struct page_table *pt, int page)
 {
@@ -144,7 +160,7 @@ void RAND(struct page_table *pt, int page)
 struct node *loadedPage(int page)
 {
 	struct node *node = head->node;
-	while (node != NULL)
+	while (node->next != NULL)
 	{
 		if (node->page == page)
 		{
@@ -158,6 +174,7 @@ struct node *loadedPage(int page)
 void page_fault_handler(struct page_table *pt, int page)
 {
 	pages_lefts++;
+
 	struct node *loaded = loadedPage(page);
 	if (loaded != NULL)
 	{
@@ -196,7 +213,7 @@ void page_fault_handler(struct page_table *pt, int page)
 		else if (!strcmp(algorithm, "custom"))
 		{
 
-			LIFO(pt, page);
+			HALFREMOVER(pt, page);
 		}
 		else if (!strcmp(algorithm, "random"))
 		{
@@ -268,10 +285,12 @@ int main(int argc, char *argv[])
 	{
 		fprintf(stderr, "unknown program: %s\n", argv[4]);
 	}
-	printf("Faltas de pagina: %i\n", pages_lefts);
+	/*printf("Faltas de pagina: %i\n", pages_lefts);
 	printf("Lecturas de disco: %i\n", diskread);
-	printf("Escrituras de disco: %i\n", diskwrite);
+	printf("Escrituras de disco: %i\n", diskwrite);*/
+	printf("%i,%i,%i,%i\n", pages_lefts, nframes, diskwrite, diskread);
 	page_table_delete(pt);
+	free(head);
 	disk_close(disk);
 
 	return 0;
