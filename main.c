@@ -17,12 +17,12 @@ how to use the page table and disk interfaces.
 char *physmem;
 int pages_lefts = 0;
 int diskwrite = 0;
-int diskread = 0;
+int diskread = 1;
 int npages;
 int nframes;
 int *marcos_table;
+int removepos = 1;
 char *algorithm;
-int removepos = 2;
 struct disk *disk;
 struct node
 {
@@ -36,18 +36,38 @@ struct list
 };
 
 struct list *head;
-
-void free_list(struct node *node)
+void append(int value, int page, struct node *initial, struct node *next)
 {
-	struct node *next = node;
-	struct node *before = node;
+	next = initial;
+	if (next != 0)
+	{
+		while (next->next != 0)
+		{
+			next = next->next;
+		}
+	}
+	next->next = malloc(sizeof(struct node));
+	next = next->next;
+	next->value = value;
+	next->page = page;
+}
 
+struct node *pop(struct node *initial)
+{
+	struct node *next = initial;
+	struct node *before;
 	while (next->next != NULL)
 	{
 		before = next;
 		next = next->next;
-		free(before);
 	}
+	before->next = NULL;
+	return next;
+}
+
+void remove_first()
+{
+	head->node = head->node->next;
 }
 
 int findPageByFrame(int frame)
@@ -77,46 +97,13 @@ void modify(int frame, int page)
 		next = next->next;
 	}
 }
-void append(int value, int page, struct node *initial, struct node *next)
-{
-	next = initial;
-	if (next != 0)
-	{
-		while (next->next != NULL)
-		{
-			next = next->next;
-		}
-	}
-	next->next = malloc(sizeof(struct node));
-	next = next->next;
-	next->value = value;
-	next->page = page;
-}
-
-struct node *pop(struct node *initial)
-{
-	struct node *next = initial;
-	struct node *before;
-	while (next->next != NULL)
-	{
-		before = next;
-		next = next->next;
-	}
-	before->next = NULL;
-	return next;
-}
-
-void remove_first()
-{
-	head->node = head->node->next;
-}
 
 void HALFREMOVER(struct page_table *pt, int page)
 {
 	removepos++;
-	if (removepos == nframes - 3)
+	if (removepos == nframes)
 	{
-		removepos = 1;
+		removepos = 0;
 	}
 	int frame = removepos;
 	int the_page = findPageByFrame(frame);
@@ -160,7 +147,7 @@ void RAND(struct page_table *pt, int page)
 struct node *loadedPage(int page)
 {
 	struct node *node = head->node;
-	while (node->next != NULL)
+	while (node != NULL)
 	{
 		if (node->page == page)
 		{
@@ -174,7 +161,6 @@ struct node *loadedPage(int page)
 void page_fault_handler(struct page_table *pt, int page)
 {
 	pages_lefts++;
-
 	struct node *loaded = loadedPage(page);
 	if (loaded != NULL)
 	{
@@ -290,7 +276,6 @@ int main(int argc, char *argv[])
 	printf("Escrituras de disco: %i\n", diskwrite);*/
 	printf("%i,%i,%i,%i\n", pages_lefts, nframes, diskwrite, diskread);
 	page_table_delete(pt);
-	free(head);
 	disk_close(disk);
 
 	return 0;

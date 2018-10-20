@@ -8,7 +8,7 @@ int main(int argc, char const *argv[])
     {
         string name = "./virtmem 100 ";
         string num = to_string(i);
-        name += num + " fifo focus";
+        name += num + " " + argv[1] + " " + argv[2];
         const char *c = name.c_str();
         system(c);
     }
