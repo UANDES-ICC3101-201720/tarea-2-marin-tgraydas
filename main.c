@@ -17,7 +17,8 @@ how to use the page table and disk interfaces.
 char *physmem;
 int pages_lefts = 0;
 int diskwrite = 0;
-int diskread = 1;
+int diskread = 0;
+int accesserror = 0;
 int npages;
 int nframes;
 int *marcos_table;
@@ -160,13 +161,14 @@ struct node *loadedPage(int page)
 
 void page_fault_handler(struct page_table *pt, int page)
 {
-	pages_lefts++;
 	struct node *loaded = loadedPage(page);
 	if (loaded != NULL)
 	{
 		page_table_set_entry(pt, page, loaded->value, PROT_READ | PROT_WRITE);
+		accesserror++;
 		return;
 	}
+	pages_lefts++;
 	int helper = 0;
 	for (int i = 0; i < nframes; i++)
 	{
@@ -271,10 +273,11 @@ int main(int argc, char *argv[])
 	{
 		fprintf(stderr, "unknown program: %s\n", argv[4]);
 	}
-	/*printf("Faltas de pagina: %i\n", pages_lefts);
+	printf("Faltas de pagina: %i\n", pages_lefts);
 	printf("Lecturas de disco: %i\n", diskread);
-	printf("Escrituras de disco: %i\n", diskwrite);*/
-	printf("%i,%i,%i,%i\n", pages_lefts, nframes, diskwrite, diskread);
+	printf("Escrituras de disco: %i\n", diskwrite);
+	//printf("%i,%i,%i,%i,%i\n", pages_lefts, nframes, diskwrite, diskread, accesserror);
+	free(head);
 	page_table_delete(pt);
 	disk_close(disk);
 

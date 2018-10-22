@@ -16,16 +16,19 @@ for i in data:
     escritura = []
     faltas = []
     lecturas = []
+    access = []
     for x in i:
         marcos.append(int(x[1]))
         escritura.append(int(x[2]))
         lecturas.append(int(x[3]))
         faltas.append(int(x[0]))
+        access.append(int(x[4]))
     plt.xlabel("Marcos")
     plt.ylabel("Cantidad")
     plt.plot(marcos, faltas, "r", label="Faltas de Pagina")
     plt.plot(marcos, escritura, "b", label="Escrituras de Disco")
-    plt.plot(marcos, lecturas, "g", label="Lecturas de Disco")
+    plt.plot(marcos, lecturas, "g--", label="Lecturas de Disco")
+    plt.plot(marcos, access , "k", label= "Error de Permisos E/L")
     plt.title((lista[pos].split("-")[0] + " " +
                lista[pos].split("-")[1].split(".")[0]).upper())
     fig = plt.gcf()
