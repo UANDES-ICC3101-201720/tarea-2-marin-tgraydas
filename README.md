@@ -9,12 +9,16 @@ Esperamos que este algorimo tenga un comportamiendo similar al del FIFO, ya que 
 Para el algoritmo FIFO, se espera que halla una disminución lineal de las faltas de página.
 Para el algoritmo Random, se espera tambien una disminución lineal de faltas de página.
 
-ANALISIS DE RESULTADOS:
+Analisis de Resultados:
+
 Para el algoritmo custom, al igual que el FIFO, tuvieron un comportamiento similar en cuanto a faltas de página como se había esperado, pero no asi con respecto al rendimiendo, en los gráficos pudimos notar que las faltas de página disminuyen muy levemente, hasta que se acercan a los 99 marcos en el programa SCAN. Para el programa FOCUS, los resultados obtenidos se asimilan mas a la hipótesis que teniamos respecto al comportamiendo del algoritmo. Para sort, los resultados muestran un crecimiento exponencial de faltas de página a medida que la cantidad de marcos disminuye. 
 Para el algoritmo de reemplazo RANDOM, con el programa FOCUS, nuestra hipótesis se acerca bastante al resultado obtenido en los gráficos. Para el programa SCAN, podemos notar que claramente este es el algoritmo que menos faltas de página produce, ya que en la gráfica vemos una disminución exponencial desde los 20 marcos hasta 100, a diferencia de los algoritmos custom y FIFO que su disminución de faltas de página se puede notar desde los 98 marcos. Para el programa SORT, podemos ver que las faltas de página decrementan rápidamente al aumentar los marcos hasta 20, para después disminuir linealmente las faltas de página.
 
 Ademas en todos los gráficos podemos notar que las faltas de página son las mismas que las lecturas de disco, esto se debe a que cada vez que ocurra una falta de página tendremos que ir al disco a leer esta para cargarla, por otro lado, las escrituras en el disco siempre son menores que las lecturas, pero la difencia entre estas se vuelve mayor a medida que hay mas marcos, esto se debe a que mientras mas marcos, menos páginas tendremos que descargar de la memoria, es decir menos veces tendremos que escribir en el disco.
 
+Como adición al trabajo esperado, decidimos analizar los errores por permiso de acceso a las páginas, con esto pudimos notar que independiente del algoritmo de reemplazo, para un mismo programa, este error se gatillaba una cantidad de veces muy similar para los 3 casos.
+
+En suma, analizando todos los resultados y gráficos obtenidos, pudimos concluir que el algoritmo de reemplazo con mejor rendimiento sumando los 3 programas es el de reemplazo RANDOM.
 
 
 
