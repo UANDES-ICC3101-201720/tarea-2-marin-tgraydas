@@ -18,7 +18,6 @@ char *physmem;
 int pages_lefts = 0;
 int diskwrite = 0;
 int diskread = 0;
-int accesserror = 0;
 int npages;
 int nframes;
 int *marcos_table;
@@ -114,7 +113,7 @@ void HALFREMOVER(struct page_table *pt, int page)
 	disk_read(disk, page, &physmem[frame * PAGE_SIZE]);
 	diskread++;
 	page_table_set_entry(pt, the_page, frame, 0);
-	page_table_set_entry(pt, page, frame, PROT_READ);
+	page_table_set_entry(pt, page, frame, PROT_READ | PROT_WRITE | PROT_EXEC);
 }
 
 void FIFO(struct page_table *pt, int page)
@@ -129,7 +128,7 @@ void FIFO(struct page_table *pt, int page)
 	disk_read(disk, page, &physmem[frame * PAGE_SIZE]);
 	diskread++;
 	page_table_set_entry(pt, the_page, frame, 0);
-	page_table_set_entry(pt, page, frame, PROT_READ);
+	page_table_set_entry(pt, page, frame, PROT_READ | PROT_WRITE | PROT_EXEC);
 }
 
 void RAND(struct page_table *pt, int page)
@@ -142,7 +141,7 @@ void RAND(struct page_table *pt, int page)
 	diskread++;
 	modify(frame, page);
 	page_table_set_entry(pt, the_page, frame, 0);
-	page_table_set_entry(pt, page, frame, PROT_READ);
+	page_table_set_entry(pt, page, frame, PROT_READ | PROT_WRITE | PROT_EXEC);
 }
 
 struct node *loadedPage(int page)
@@ -161,13 +160,7 @@ struct node *loadedPage(int page)
 
 void page_fault_handler(struct page_table *pt, int page)
 {
-	struct node *loaded = loadedPage(page);
-	if (loaded != NULL)
-	{
-		page_table_set_entry(pt, page, loaded->value, PROT_READ | PROT_WRITE);
-		accesserror++;
-		return;
-	}
+
 	pages_lefts++;
 	int helper = 0;
 	for (int i = 0; i < nframes; i++)
@@ -176,7 +169,7 @@ void page_fault_handler(struct page_table *pt, int page)
 		{
 			disk_read(disk, page, &physmem[i * PAGE_SIZE]);
 			diskread++;
-			page_table_set_entry(pt, page, i, PROT_READ);
+			page_table_set_entry(pt, page, i, PROT_READ | PROT_WRITE | PROT_EXEC);
 			marcos_table[i] = -1;
 			struct node *next = head->node;
 			if (i == 0)
@@ -273,10 +266,10 @@ int main(int argc, char *argv[])
 	{
 		fprintf(stderr, "unknown program: %s\n", argv[4]);
 	}
-	printf("Faltas de pagina: %i\n", pages_lefts);
+	/*printf("Faltas de pagina: %i\n", pages_lefts);
 	printf("Lecturas de disco: %i\n", diskread);
-	printf("Escrituras de disco: %i\n", diskwrite);
-	//printf("%i,%i,%i,%i,%i\n", pages_lefts, nframes, diskwrite, diskread, accesserror);
+	printf("Escrituras de disco: %i\n", diskwrite);*/
+	printf("%i,%i,%i,%i\n", pages_lefts, nframes, diskwrite, diskread);
 	free(head);
 	page_table_delete(pt);
 	disk_close(disk);

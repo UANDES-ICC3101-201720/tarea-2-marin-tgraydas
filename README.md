@@ -16,7 +16,6 @@ Para el algoritmo de reemplazo RANDOM, con el programa FOCUS, nuestra hipótesis
 
 Ademas en todos los gráficos podemos notar que las faltas de página son las mismas que las lecturas de disco, esto se debe a que cada vez que ocurra una falta de página tendremos que ir al disco a leer esta para cargarla, por otro lado, las escrituras en el disco siempre son menores que las lecturas, pero la difencia entre estas se vuelve mayor a medida que hay mas marcos, esto se debe a que mientras mas marcos, menos páginas tendremos que descargar de la memoria, es decir menos veces tendremos que escribir en el disco.
 
-Como adición al trabajo esperado, decidimos analizar los errores por permiso de acceso a las páginas, con esto pudimos notar que independiente del algoritmo de reemplazo, para un mismo programa, este error se gatillaba una cantidad de veces muy similar para los 3 casos.
 
 En suma, analizando todos los resultados y gráficos obtenidos, pudimos concluir que el algoritmo de reemplazo con mejor rendimiento sumando los 3 programas es el de reemplazo RANDOM.
 
