@@ -266,10 +266,10 @@ int main(int argc, char *argv[])
 	{
 		fprintf(stderr, "unknown program: %s\n", argv[4]);
 	}
-	/*printf("Faltas de pagina: %i\n", pages_lefts);
+	printf("Faltas de pagina: %i\n", pages_lefts);
 	printf("Lecturas de disco: %i\n", diskread);
-	printf("Escrituras de disco: %i\n", diskwrite);*/
-	printf("%i,%i,%i,%i\n", pages_lefts, nframes, diskwrite, diskread);
+	printf("Escrituras de disco: %i\n", diskwrite);
+	//printf("%i,%i,%i,%i\n", pages_lefts, nframes, diskwrite, diskread);
 	free(head);
 	page_table_delete(pt);
 	disk_close(disk);
